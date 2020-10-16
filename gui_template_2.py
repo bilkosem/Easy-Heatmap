@@ -125,7 +125,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -153,45 +153,99 @@ class Ui_MainWindow(object):
         self.btn_save_img.setText(_translate("MainWindow", "Save Image"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_heatmap), _translate("MainWindow", "Paint Heatmap"))
         self.configure_gui(MainWindow)
-       
-    def btn_ui_cliked(self):
-        filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
-        #filepath="D:/borders.jpg"
+
+    def configure_gui(self,MainWindow):
+        self.hm_label.mousePressEvent = self.getPixel
+        self.btn_upload_image.clicked.connect(self.btn_upload_image_clicked)
+        self.btn_upload_data.clicked.connect(self.btn_upload_data_cliked)
+        self.btn_save_field.clicked.connect(self.btn_save_field_clicked)
+        self.btn_del_sel_field.clicked.connect(self.btn_del_sel_field_clicked)
+        self.btn_del_all_field.clicked.connect(self.btn_del_all_field_clicked)
+        self.field_list=[]        
+        
+
+    def btn_upload_image_clicked(self):
+        #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
+        filepath="D:/borders.jpg"
         print(filepath)
         self.image = cv2.imread(filepath)
-        self.kmeans = kmeans_color_quantization(self.image, clusters=3)
+        self.kmeans_base = kmeans_color_quantization(self.image, clusters=3)
+        self.kmeans = self.kmeans_base.copy()
         mypixmap = self.cv2_to_pix(self.image)
         #MainWindow.resize(240+mypixmap.height(), mypixmap.width())
         print(mypixmap.height())
         MainWindow.setGeometry(100,100,47+mypixmap.width(),240+mypixmap.height(),)
-        self.display_pix(mypixmap)
+        self.btn_del_all_field_clicked() #Clear Fields and Map Data
         
-    def btn_ud_cliked(self):
-        filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
+    def btn_upload_data_cliked(self):
+        #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
+        filepath="C:/Users/bilko/Desktop/hm.xlsx"
         print(filepath)
-        df = pd.read_excel(filepath)
-        self.p_labels = df['label'].values.tolist()
+        self.df = pd.read_excel(filepath)
+        self.p_labels = self.df['label'].values.tolist()
         self.cmb_sel_point.addItems(self.p_labels)
+        print(len(self.df))
         
-    def configure_gui(self,MainWindow):
-        self.hm_label.mousePressEvent = self.getPixel
-        self.btn_upload_image.clicked.connect(self.btn_ui_cliked)
-        self.btn_upload_data.clicked.connect(self.btn_ud_cliked)
-        self.btn_save_field.clicked.connect(self.btn_sf_clicked)
+    def btn_save_field_clicked(self):
         
-        self.field_list=[]
+        hsv = cv2.cvtColor(self.kmeans, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
+        #field = self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)]#cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
+        field_label = str(self.field_name_input.toPlainText())
+        self.field_list.append({'label':field_label, 'mask':mask, 'points':[]})
+        self.cmb_field.addItem(field_label)
 
+        #Clear image and print fields by masks
+        self.display_fields()        
+        #self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)] = (169,169,169)
+        #res = cv2.bitwise_and(self.kmeans,self.kmeans, mask= mask)
+
+
+    def btn_del_sel_field_clicked(self):
+        self.field_list.pop(self.cmb_field.findText(self.cmb_field.currentText()))
+        self.cmb_field.removeItem(self.cmb_field.findText(self.cmb_field.currentText()))
+        self.display_fields()
+
+    def btn_del_all_field_clicked(self):
+        self.field_list.clear()
+        self.cmb_field.clear()
+        self.display_fields()
         
     def getPixel(self, event):
         x = event.pos().x()
         y = event.pos().y()
 
+        
         print(x,y)
-        seed_point = (x, y)
-        cv2.floodFill(self.kmeans, None, seedPoint=seed_point, newVal=(36, 255, 12), loDiff=(0, 0, 0, 0), upDiff=(0, 0, 0, 0))
-        pixmap = self.cv2_to_pix(self.kmeans)
-        self.display_pix(pixmap)
-        #return x, y, c_rgb
+        if self.tabWidget.currentIndex() == 0: # FIELD TAB
+            for mask in [x['mask'] for x in self.field_list]:
+                if mask[y,x]==255:
+                    return
+                
+            seed_point = (x, y)
+            cv2.floodFill(self.kmeans, None, seedPoint=seed_point, newVal=(36, 255, 12), loDiff=(0, 0, 0, 0), upDiff=(0, 0, 0, 0))
+            pixmap = self.cv2_to_pix(self.kmeans)
+            self.display_pix(pixmap)
+        elif self.tabWidget.currentIndex() == 1: # POINT TAB
+            
+            if self.cmb_sel_point.count()>0:
+                for idx,mask in enumerate([x['mask'] for x in self.field_list]):
+                    if mask[y,x]==255:
+                        print("IN FIELD")
+                        self.field_list[idx]['points'].append((x,y))
+                        self.cmb_del_point.addItem(str(self.cmb_sel_point.currentText()))
+                        self.cmb_sel_point.removeItem(self.cmb_sel_point.findText(self.cmb_sel_point.currentText()))
+                        self.display_points(False)
+                        print(self.field_list)
+                        return
+                    else:
+                        print("OUT FIELD")
+        return 
+        ####################################################################### 
+        # TOOLS
+    def update_cmb_field(self):
+        self.cmb_field.addItems([f['label'] for f in self.field_list])
+        return 1    
 
     def cv2_to_pix(self,cv2_obj):
         height, width, channel = cv2_obj.shape
@@ -204,7 +258,26 @@ class Ui_MainWindow(object):
         self.hm_label.setFixedWidth(pix.width())
         self.hm_label.setFixedHeight(pix.height())
         self.hm_label.setPixmap(pix)
-        
+
+    def display_fields(self,clear=True):
+        if clear:
+            self.kmeans = self.kmeans_base.copy()
+        for mask in [f['mask'] for f in self.field_list]:
+            self.kmeans[mask==255]=[169,169,169]
+        pixmap = self.cv2_to_pix(self.kmeans)
+        self.display_pix(pixmap) 
+
+    def display_points(self,clear=True):
+        if clear:
+            self.kmeans = self.kmeans_base.copy()
+
+        for point in [f['points'] for f in self.field_list]:
+            print(point)
+            #cv2.circle(self.kmeans, (400,400), 10,(255,0,0))
+            cv2.circle(img,(row, col), 5, (0,255,0), -1)
+        pixmap = self.cv2_to_pix(self.kmeans)
+        self.display_pix(pixmap)         
+
     def btn_sf_clicked(self):
         
         hsv = cv2.cvtColor(self.kmeans, cv2.COLOR_BGR2HSV)
