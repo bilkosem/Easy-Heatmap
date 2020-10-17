@@ -3,6 +3,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import cv2
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from PIL import Image
+from skimage import transform
+from scipy import ndimage
+from matplotlib import cm
 
 variable=0
 
@@ -155,15 +160,38 @@ class Ui_MainWindow(object):
         self.configure_gui(MainWindow)
 
     def configure_gui(self,MainWindow):
+        self.slider.setRange(0,200)
+        self.slider.setValue(5)
+        
         self.hm_label.mousePressEvent = self.getPixel
+        self.tabWidget.currentChanged.connect(self.on_tab_change)
+        
         self.btn_upload_image.clicked.connect(self.btn_upload_image_clicked)
         self.btn_upload_data.clicked.connect(self.btn_upload_data_cliked)
         self.btn_save_field.clicked.connect(self.btn_save_field_clicked)
         self.btn_del_sel_field.clicked.connect(self.btn_del_sel_field_clicked)
         self.btn_del_all_field.clicked.connect(self.btn_del_all_field_clicked)
-        self.field_list=[]        
+        self.btn_del_sel_p.clicked.connect(self.btn_del_sel_p_clicked)
+        self.btn_del_all_p.clicked.connect(self.btn_del_all_p_clicked)
+        
+        self.slider.valueChanged.connect(self.slider_value_changed)
+        self.btn_save_hm.clicked.connect(self.btn_save_hm_clicked)
+        self.cmb_sel_cm.addItems(plt.colormaps())
+        self.field_list=[]
         
 
+        
+    def on_tab_change(self,tab_index):
+        if tab_index==2:
+            self.cmb_paint_field.addItems([f['label'] for f in self.field_list])
+            self.kmeans = self.kmeans_base.copy()
+            pixmap = self.cv2_to_pix(self.kmeans)
+            self.display_pix(pixmap) 
+
+    def slider_value_changed(self,tab_index):
+        
+        #self.create_heatmap()
+        pass
     def btn_upload_image_clicked(self):
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
         filepath="D:/borders.jpg"
@@ -178,6 +206,8 @@ class Ui_MainWindow(object):
         self.btn_del_all_field_clicked() #Clear Fields and Map Data
         
     def btn_upload_data_cliked(self):
+        self.btn_del_all_p_clicked(False)
+
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
         filepath="C:/Users/bilko/Desktop/hm.xlsx"
         print(filepath)
@@ -197,9 +227,6 @@ class Ui_MainWindow(object):
 
         #Clear image and print fields by masks
         self.display_fields()        
-        #self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)] = (169,169,169)
-        #res = cv2.bitwise_and(self.kmeans,self.kmeans, mask= mask)
-
 
     def btn_del_sel_field_clicked(self):
         self.field_list.pop(self.cmb_field.findText(self.cmb_field.currentText()))
@@ -210,12 +237,34 @@ class Ui_MainWindow(object):
         self.field_list.clear()
         self.cmb_field.clear()
         self.display_fields()
+
+    def btn_del_all_p_clicked(self,reupload_labels=True):   
+        for f_idx,points_of_field in enumerate([f['points'] for f in self.field_list]):
+            points_of_field.clear()
+        self.cmb_del_point.clear() #Delete all points from comboBox
+        self.cmb_sel_point.clear()
+        if reupload_labels:
+            self.cmb_sel_point.addItems(self.p_labels) #Upload All points to comboBox
+        self.display_fields(True)
+
+    def btn_del_sel_p_clicked(self):
+        print("------------DELETİNG POİNT")
+        label2del = str(self.cmb_del_point.currentText())
+        print(label2del)
+        for f_idx,points_of_field in enumerate([f['points'] for f in self.field_list]):
+            for p_idx,point in enumerate(points_of_field):
+                if label2del in point.keys():
+                    print(p_idx)
+                    self.field_list[f_idx]['points'].pop(p_idx)
+        self.cmb_del_point.removeItem(self.cmb_del_point.findText(label2del))
+        self.cmb_sel_point.addItem(label2del)
+        self.display_fields(True)
+        self.display_points(False)     
         
     def getPixel(self, event):
         x = event.pos().x()
         y = event.pos().y()
-
-        
+     
         print(x,y)
         if self.tabWidget.currentIndex() == 0: # FIELD TAB
             for mask in [x['mask'] for x in self.field_list]:
@@ -232,16 +281,17 @@ class Ui_MainWindow(object):
                 for idx,mask in enumerate([x['mask'] for x in self.field_list]):
                     if mask[y,x]==255:
                         print("IN FIELD")
-                        self.field_list[idx]['points'].append((x,y))
+                        self.field_list[idx]['points'].append({str(self.cmb_sel_point.currentText()):str(self.cmb_sel_point.currentText()),
+                                                               'coord':(x,y),
+                                                               'value':float(self.df[self.df['label']==str(self.cmb_sel_point.currentText())]['value'])})
                         self.cmb_del_point.addItem(str(self.cmb_sel_point.currentText()))
                         self.cmb_sel_point.removeItem(self.cmb_sel_point.findText(self.cmb_sel_point.currentText()))
                         self.display_points(False)
-                        print(self.field_list)
                         return
                     else:
                         print("OUT FIELD")
         return 
-        ####################################################################### 
+###############################################################################
         # TOOLS
     def update_cmb_field(self):
         self.cmb_field.addItems([f['label'] for f in self.field_list])
@@ -260,6 +310,7 @@ class Ui_MainWindow(object):
         self.hm_label.setPixmap(pix)
 
     def display_fields(self,clear=True):
+        print(self.field_list)
         if clear:
             self.kmeans = self.kmeans_base.copy()
         for mask in [f['mask'] for f in self.field_list]:
@@ -270,11 +321,13 @@ class Ui_MainWindow(object):
     def display_points(self,clear=True):
         if clear:
             self.kmeans = self.kmeans_base.copy()
-
-        for point in [f['points'] for f in self.field_list]:
-            print(point)
-            #cv2.circle(self.kmeans, (400,400), 10,(255,0,0))
-            cv2.circle(img,(row, col), 5, (0,255,0), -1)
+        #print([f['points'] for f in self.field_list])
+        
+        for points_of_field in [f['points'] for f in self.field_list]:
+            for point in points_of_field:
+                #cv2.circle(self.kmeans, (400,400), 10,(255,0,0))
+                self.kmeans = cv2.circle(self.kmeans,point['coord'], 10, (255,0,0), -1)
+        
         pixmap = self.cv2_to_pix(self.kmeans)
         self.display_pix(pixmap)         
 
@@ -299,8 +352,43 @@ class Ui_MainWindow(object):
         #res = cv2.bitwise_and(self.kmeans,self.kmeans, mask= mask)
         pixmap = self.cv2_to_pix(self.kmeans)
         self.display_pix(pixmap) 
+###############################################################################
+### Ploting Tools
+    def btn_save_hm_clicked(self):
+        self.create_heatmap()
 
+    def create_heatmap(self):
+                
+        # Create Heatmap Parameters
+        mask = [f['mask'] for f in self.field_list if str(self.cmb_paint_field.currentText())==f['label']][0]
+        colormap = str(self.cmb_sel_cm.currentText())
+        point_list = [f['points'] for f in self.field_list if str(self.cmb_paint_field.currentText())==f['label']][0]
+        values = [p['value'] for p in point_list]
+        slider_value = self.slider.value()
+        
+        # Create Heatmap Surface
+        x = np.ones((ui.kmeans.shape[0],ui.kmeans.shape[1]))*min(values) #(570, 900)
+        for p in point_list:
+            x[p['coord'][1],p['coord'][0]]=p['value']
+        
+        # Interpolate Heatmap
+        gaussian_map = ndimage.filters.gaussian_filter(x, sigma=slider_value)
 
+        max_value = np.max(gaussian_map)
+        min_value = np.min(gaussian_map)        
+        normalized_heat_map = (gaussian_map - min_value) / (max_value-min_value)        
+        
+        # Apply Mask to Heatmap
+        #cmap = plt.get_cmap('jet')
+        im_new = Image.fromarray(np.uint8(cm.jet(normalized_heat_map)*255))
+        opencvImage = cv2.cvtColor(np.array(im_new), cv2.COLOR_RGB2BGR)
+        opencvImage_MATPLOT = cv2.cvtColor(opencvImage, cv2.COLOR_BGR2RGB)
+        self.kmeans[mask==255]=opencvImage_MATPLOT[mask==255]
+        
+        # Display Mask to Heatmap
+        pixmap = self.cv2_to_pix(self.kmeans)
+        self.display_pix(pixmap) 
+ 
 def kmeans_color_quantization(image, clusters=8, rounds=1):
     h, w = image.shape[:2]
     samples = np.zeros([h*w,3], dtype=np.float32)
