@@ -7,5 +7,6 @@ df.columns = ['label', 'value']
 grouped_by_state = df.groupby('label')
 aa = grouped_by_state['value'].sum()/grouped_by_state['value'].count()
 final_frame = pd.DataFrame([aa.index,aa.values],).transpose()
-final_frame.columns=['label','value']
+final_frame.columns=['label','svalue']
+final_frame.to_excel("usa.xlsx",index=False)
 

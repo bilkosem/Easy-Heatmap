@@ -13,7 +13,7 @@ variable=0
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
+        MainWindow.setObjectName("Easy-Heatmap")
         MainWindow.resize(653, 865)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -93,15 +93,15 @@ class Ui_MainWindow(object):
         self.cmb_paint_field = QtWidgets.QComboBox(self.tab_heatmap)
         self.cmb_paint_field.setGeometry(QtCore.QRect(130, 30, 151, 22))
         self.cmb_paint_field.setObjectName("cmb_paint_field")
-        self.btn_save_hm = QtWidgets.QPushButton(self.tab_heatmap)
-        self.btn_save_hm.setGeometry(QtCore.QRect(330, 30, 121, 31))
-        self.btn_save_hm.setObjectName("btn_save_hm")
+        #self.btn_save_hm = QtWidgets.QPushButton(self.tab_heatmap)
+        #self.btn_save_hm.setGeometry(QtCore.QRect(330, 30, 121, 31))
+        #self.btn_save_hm.setObjectName("btn_save_hm")
         self.label_6 = QtWidgets.QLabel(self.tab_heatmap)
         self.label_6.setGeometry(QtCore.QRect(40, 30, 61, 21))
         self.label_6.setObjectName("label_6")
-        self.btn_clr_hm = QtWidgets.QPushButton(self.tab_heatmap)
-        self.btn_clr_hm.setGeometry(QtCore.QRect(460, 30, 121, 31))
-        self.btn_clr_hm.setObjectName("btn_clr_hm")
+        #self.btn_clr_hm = QtWidgets.QPushButton(self.tab_heatmap)
+        #self.btn_clr_hm.setGeometry(QtCore.QRect(460, 30, 121, 31))
+        #self.btn_clr_hm.setObjectName("btn_clr_hm")
         self.line_3 = QtWidgets.QFrame(self.tab_heatmap)
         self.line_3.setGeometry(QtCore.QRect(300, 10, 20, 151))
         self.line_3.setFrameShape(QtWidgets.QFrame.VLine)
@@ -135,7 +135,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Easy-Heatmap"))
         #self.hm_label.setText(_translate("MainWindow", "hm_label"))
         self.btn_save_field.setText(_translate("MainWindow", "Save Field"))
         self.label_2.setText(_translate("MainWindow", "Field Name:"))
@@ -150,9 +150,9 @@ class Ui_MainWindow(object):
         self.btn_del_all_p.setText(_translate("MainWindow", "Delete All Points"))
         self.btn_upload_data.setText(_translate("MainWindow", "Upload Data File"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_point), _translate("MainWindow", "Create Point"))
-        self.btn_save_hm.setText(_translate("MainWindow", "Save Heatmap Field"))
+        #self.btn_save_hm.setText(_translate("MainWindow", "Save Heatmap Field"))
         self.label_6.setText(_translate("MainWindow", "Select Field:"))
-        self.btn_clr_hm.setText(_translate("MainWindow", "Clear Field"))
+        #self.btn_clr_hm.setText(_translate("MainWindow", "Clear Field"))
         self.label_7.setText(_translate("MainWindow", "Adjust Radius:"))
         self.label_8.setText(_translate("MainWindow", "Select Colormap:"))
         self.btn_save_img.setText(_translate("MainWindow", "Save Image"))
@@ -173,31 +173,40 @@ class Ui_MainWindow(object):
         self.btn_del_all_field.clicked.connect(self.btn_del_all_field_clicked)
         self.btn_del_sel_p.clicked.connect(self.btn_del_sel_p_clicked)
         self.btn_del_all_p.clicked.connect(self.btn_del_all_p_clicked)
-        
+        self.btn_save_img.clicked.connect(self.btn_save_img_clicked)
+
         self.slider.valueChanged.connect(self.slider_value_changed)
-        self.btn_save_hm.clicked.connect(self.btn_save_hm_clicked)
         self.cmb_sel_cm.addItems(plt.colormaps())
+        index = self.cmb_sel_cm.findText('jet', QtCore.Qt.MatchFixedString)
+        if index >= 0:
+             self.cmb_sel_cm.setCurrentIndex(index)
+             
         self.field_list=[]
+        
+        self.tabWidget.setTabEnabled(1, False)
+        self.tabWidget.setTabEnabled(2, False)
         
 
         
     def on_tab_change(self,tab_index):
         if tab_index==2:
+            self.cmb_paint_field.clear()
             self.cmb_paint_field.addItems([f['label'] for f in self.field_list])
             self.kmeans = self.kmeans_base.copy()
-            pixmap = self.cv2_to_pix(self.kmeans)
-            self.display_pix(pixmap) 
+            self.init_heatmap()
+            #pixmap = self.cv2_to_pix(self.kmeans)
+            #self.display_pix(pixmap)
+            
 
     def slider_value_changed(self,tab_index):
-        
-        #self.create_heatmap()
+        self.create_heatmap()
         pass
     def btn_upload_image_clicked(self):
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
         filepath="D:/borders.jpg"
         print(filepath)
         self.image = cv2.imread(filepath)
-        self.kmeans_base = kmeans_color_quantization(self.image, clusters=3)
+        self.kmeans_base = kmeans_color_quantization(self.image, clusters=2)
         self.kmeans = self.kmeans_base.copy()
         mypixmap = self.cv2_to_pix(self.image)
         #MainWindow.resize(240+mypixmap.height(), mypixmap.width())
@@ -209,7 +218,8 @@ class Ui_MainWindow(object):
         self.btn_del_all_p_clicked(False)
 
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
-        filepath="C:/Users/bilko/Desktop/hm.xlsx"
+        #filepath="C:/Users/bilko/Desktop/hm.xlsx"
+        filepath="D:/git/easy_heatmap_creater/usa.xlsx"
         print(filepath)
         self.df = pd.read_excel(filepath)
         self.p_labels = self.df['label'].values.tolist()
@@ -217,13 +227,15 @@ class Ui_MainWindow(object):
         print(len(self.df))
         
     def btn_save_field_clicked(self):
-        
         hsv = cv2.cvtColor(self.kmeans, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
         #field = self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)]#cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
         field_label = str(self.field_name_input.toPlainText())
         self.field_list.append({'label':field_label, 'mask':mask, 'points':[]})
         self.cmb_field.addItem(field_label)
+        
+        if len(self.field_list):
+            self.tabWidget.setTabEnabled(1, True)
 
         #Clear image and print fields by masks
         self.display_fields()        
@@ -248,7 +260,6 @@ class Ui_MainWindow(object):
         self.display_fields(True)
 
     def btn_del_sel_p_clicked(self):
-        print("------------DELETİNG POİNT")
         label2del = str(self.cmb_del_point.currentText())
         print(label2del)
         for f_idx,points_of_field in enumerate([f['points'] for f in self.field_list]):
@@ -286,11 +297,20 @@ class Ui_MainWindow(object):
                                                                'value':float(self.df[self.df['label']==str(self.cmb_sel_point.currentText())]['value'])})
                         self.cmb_del_point.addItem(str(self.cmb_sel_point.currentText()))
                         self.cmb_sel_point.removeItem(self.cmb_sel_point.findText(self.cmb_sel_point.currentText()))
+                        
+                        if self.cmb_del_point.count():
+                            self.tabWidget.setTabEnabled(2, True)
+
+
                         self.display_points(False)
                         return
                     else:
                         print("OUT FIELD")
         return 
+    
+    def btn_save_img_clicked(self):
+        plt.imsave('heatmap_image.jpg',self.kmeans )
+
 ###############################################################################
         # TOOLS
     def update_cmb_field(self):
@@ -321,42 +341,56 @@ class Ui_MainWindow(object):
     def display_points(self,clear=True):
         if clear:
             self.kmeans = self.kmeans_base.copy()
-        #print([f['points'] for f in self.field_list])
         
         for points_of_field in [f['points'] for f in self.field_list]:
             for point in points_of_field:
                 #cv2.circle(self.kmeans, (400,400), 10,(255,0,0))
-                self.kmeans = cv2.circle(self.kmeans,point['coord'], 10, (255,0,0), -1)
+                self.kmeans = cv2.circle(self.kmeans,point['coord'], 5, (255,0,0), -1)
         
         pixmap = self.cv2_to_pix(self.kmeans)
         self.display_pix(pixmap)         
 
-    def btn_sf_clicked(self):
-        
-        hsv = cv2.cvtColor(self.kmeans, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
-        #print(mask)
-        mask = self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)]#cv2.inRange(hsv, (36, 25, 25), (70, 255,255)) 
-        self.field_list.append(mask)
-        #print(mask)
-        global variable
-        variable = self.field_list
-        #self.kmeans[mask] = (255,255,0)
-        #self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)] = (169,169,169)
-        #pixmap = self.cv2_to_pix(self.kmeans)
-        #self.display_pix(pixmap)
-        #self.kmeans[green_mask]=[0,0,0]
-        #print(mask1)
-        #for f in self.field_list:
-        self.kmeans[np.all(self.kmeans == (36, 255, 12), axis=-1)] = (169,169,169)
-        #res = cv2.bitwise_and(self.kmeans,self.kmeans, mask= mask)
-        pixmap = self.cv2_to_pix(self.kmeans)
-        self.display_pix(pixmap) 
 ###############################################################################
 ### Ploting Tools
     def btn_save_hm_clicked(self):
         self.create_heatmap()
 
+    def init_heatmap(self):
+        for field in self.field_list:
+            mask = field['mask']
+            colormap = str(self.cmb_sel_cm.currentText())
+            point_list = field['points']
+            values = [p['value'] for p in point_list]
+            slider_value = self.slider.value()
+            
+            # Create Heatmap Surface
+            x = np.ones((ui.kmeans.shape[0],ui.kmeans.shape[1]))*min(values) #(570, 900)
+            for p in point_list:
+                x[p['coord'][1],p['coord'][0]]=p['value']
+            
+            # Interpolate Heatmap
+            gaussian_map = ndimage.filters.gaussian_filter(x, sigma=slider_value)
+    
+            max_value = np.max(gaussian_map)
+            min_value = np.min(gaussian_map)
+            if len(values)>1:
+                normalized_heat_map = (gaussian_map - min_value) / (max_value-min_value)  
+            else:
+                normalized_heat_map = gaussian_map.copy() 
+    
+            # Apply Mask to Heatmap
+            cmap = plt.get_cmap(colormap)
+            im_new = Image.fromarray(np.uint8(cmap(normalized_heat_map)*255))
+            opencvImage = cv2.cvtColor(np.array(im_new), cv2.COLOR_RGB2BGR)
+    
+            opencvImage_MATPLOT = cv2.cvtColor(opencvImage, cv2.COLOR_BGR2RGB)
+            
+            self.kmeans[mask==255]=opencvImage_MATPLOT[mask==255]
+            
+        # Display Mask to Heatmap
+        pixmap = self.cv2_to_pix(self.kmeans)
+        self.display_pix(pixmap)
+        
     def create_heatmap(self):
                 
         # Create Heatmap Parameters
@@ -375,14 +409,20 @@ class Ui_MainWindow(object):
         gaussian_map = ndimage.filters.gaussian_filter(x, sigma=slider_value)
 
         max_value = np.max(gaussian_map)
-        min_value = np.min(gaussian_map)        
-        normalized_heat_map = (gaussian_map - min_value) / (max_value-min_value)        
-        
+        min_value = np.min(gaussian_map)
+        if len(values)>1:
+            normalized_heat_map = (gaussian_map - min_value) / (max_value-min_value)  
+        else:
+            normalized_heat_map = gaussian_map.copy() 
+
         # Apply Mask to Heatmap
-        #cmap = plt.get_cmap('jet')
-        im_new = Image.fromarray(np.uint8(cm.jet(normalized_heat_map)*255))
+        cmap = plt.get_cmap(colormap)
+        im_new = Image.fromarray(np.uint8(cmap(normalized_heat_map)*255))
         opencvImage = cv2.cvtColor(np.array(im_new), cv2.COLOR_RGB2BGR)
+        cv2.imwrite("opencvImage.jpg", opencvImage)
+
         opencvImage_MATPLOT = cv2.cvtColor(opencvImage, cv2.COLOR_BGR2RGB)
+        
         self.kmeans[mask==255]=opencvImage_MATPLOT[mask==255]
         
         # Display Mask to Heatmap
