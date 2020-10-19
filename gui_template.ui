@@ -402,7 +402,7 @@
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources>
-  <include location="resources.qrc"/>
+  <include location="res_file.qrc"/>
  </resources>
  <connections/>
 </ui>

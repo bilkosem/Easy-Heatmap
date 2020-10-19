@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="res_prefix">
+    <file>easy_heatmap_icon_file.ico</file>
+  </qresource>
+</RCC>

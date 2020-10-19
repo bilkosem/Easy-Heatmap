@@ -160,6 +160,11 @@ class Ui_MainWindow(object):
         self.configure_gui(MainWindow)
 
     def configure_gui(self,MainWindow):
+        
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(":/res_prefix/easy_heatmap_icon_file.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        MainWindow.setWindowIcon(icon)
+        
         self.slider.setRange(0,200)
         self.slider.setValue(5)
         
@@ -449,7 +454,9 @@ def kmeans_color_quantization(image, clusters=8, rounds=1):
     centers = np.uint8(centers)
     res = centers[labels.flatten()]
     return res.reshape((image.shape))
-    
+ 
+import res_file_rc
+   
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
