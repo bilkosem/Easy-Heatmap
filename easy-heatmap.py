@@ -5,9 +5,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
-from skimage import transform
 from scipy import ndimage
-from matplotlib import cm
+import sys
 
 variable=0
 
@@ -208,10 +207,10 @@ class Ui_MainWindow(object):
         pass
     def btn_upload_image_clicked(self):
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
-        filepath="D:/borders.jpg"
+        filepath=sys.path[0]+"\\borders.jpg"
         print(filepath)
         self.image = cv2.imread(filepath)
-        self.kmeans_base = kmeans_color_quantization(self.image, clusters=2)
+        self.kmeans_base,self.centers = kmeans_color_quantization(self.image, clusters=2)
         self.kmeans = self.kmeans_base.copy()
         mypixmap = self.cv2_to_pix(self.image)
         #MainWindow.resize(240+mypixmap.height(), mypixmap.width())
@@ -224,7 +223,7 @@ class Ui_MainWindow(object):
 
         #filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
         #filepath="C:/Users/bilko/Desktop/hm.xlsx"
-        filepath="D:/git/easy_heatmap_creater/usa.xlsx"
+        filepath=sys.path[0]+"\\usa.xlsx"
         print(filepath)
         self.df = pd.read_excel(filepath)
         self.p_labels = self.df['label'].values.tolist()
@@ -280,15 +279,31 @@ class Ui_MainWindow(object):
     def getPixel(self, event):
         x = event.pos().x()
         y = event.pos().y()
-     
+        
+        #pixmap = self.cv2_to_pix(self.kmeans)
+        #c = pixmap.pixel(x,y)  # color code (integer): 3235912
+        # depending on what kind of value you like (arbitary examples)
+        #c_qobj = QtGui.QColor(c)  # color object
+        #c_rgb = QtGui.QColor(c).getRgb()  # 8bit RGBA: (255, 23, 0, 255)
+        #c_rgbf = QtGui.QColor(c).getRgbf()  # RGBA float: (1.0, 0.3123, 0.0, 1.0
+        #print(c_qobj,c_rgb,c_rgbf)
+        if self.kmeans[y,x] in self.centers:
+            print("detected")
+            
         print(x,y)
+        print(self.kmeans[y,x])
         if self.tabWidget.currentIndex() == 0: # FIELD TAB
             for mask in [x['mask'] for x in self.field_list]:
                 if mask[y,x]==255:
                     return
                 
             seed_point = (x, y)
-            cv2.floodFill(self.kmeans, None, seedPoint=seed_point, newVal=(36, 255, 12), loDiff=(0, 0, 0, 0), upDiff=(0, 0, 0, 0))
+            if self.kmeans[y,x].tolist() == [36, 255, 12]: # Toggle Feature has been added
+                color = np.uint8(self.kmeans_base[y,x])#ui.centers[0]
+                c = tuple(map(int, color))
+                cv2.floodFill(self.kmeans, None, seedPoint=seed_point, newVal=c, loDiff=(0, 0, 0, 0), upDiff=(0, 0, 0, 0))
+            else:  
+                cv2.floodFill(self.kmeans, None, seedPoint=seed_point, newVal=(36, 255, 12), loDiff=(0, 0, 0, 0), upDiff=(0, 0, 0, 0))
             pixmap = self.cv2_to_pix(self.kmeans)
             self.display_pix(pixmap)
         elif self.tabWidget.currentIndex() == 1: # POINT TAB
@@ -312,9 +327,9 @@ class Ui_MainWindow(object):
                     else:
                         print("OUT FIELD")
         return 
-    
+
     def btn_save_img_clicked(self):
-        plt.imsave('heatmap_image.jpg',self.kmeans )
+        plt.imsave(sys.path[0]+'\\heatmap_image.jpg',self.kmeans )
 
 ###############################################################################
         # TOOLS
@@ -424,7 +439,7 @@ class Ui_MainWindow(object):
         cmap = plt.get_cmap(colormap)
         im_new = Image.fromarray(np.uint8(cmap(normalized_heat_map)*255))
         opencvImage = cv2.cvtColor(np.array(im_new), cv2.COLOR_RGB2BGR)
-        cv2.imwrite("opencvImage.jpg", opencvImage)
+        cv2.imwrite(sys.path[0]+"\\opencvImage.jpg", opencvImage)
 
         opencvImage_MATPLOT = cv2.cvtColor(opencvImage, cv2.COLOR_BGR2RGB)
         
@@ -453,7 +468,7 @@ def kmeans_color_quantization(image, clusters=8, rounds=1):
 
     centers = np.uint8(centers)
     res = centers[labels.flatten()]
-    return res.reshape((image.shape))
+    return res.reshape((image.shape)),centers
  
 import res_file_rc
    
